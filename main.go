@@ -37,8 +37,8 @@ func AskForInt(messageToPrint string) (int64, error) {
 	return AskForIntFromReader(messageToPrint, os.Stdin)
 }
 
-func AskForBool(messageToPrint string) (bool, error) {
-	userInputStr, err := AskForString(messageToPrint)
+func AskForBoolFromReader(messageToPrint string, inputReader io.Reader) (bool, error) {
+	userInputStr, err := AskForStringFromReader(messageToPrint, inputReader)
 	if err != nil {
 		return false, err
 	}
@@ -50,6 +50,10 @@ func AskForBool(messageToPrint string) (bool, error) {
 		return false, nil
 	}
 	return strconv.ParseBool(lowercased)
+}
+
+func AskForBool(messageToPrint string) (bool, error) {
+	return AskForBoolFromReader(messageToPrint, os.Stdin)
 }
 
 func main() {

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestAskForStringFromReader(t *testing.T) {
@@ -29,6 +29,30 @@ func TestAskForIntFromReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res != 31 {
+		t.Fatalf("Scanned input (%s) does not match expected (%s)", res, testUserInput)
+	}
+}
+
+func TestAskForBoolFromReader(t *testing.T) {
+	t.Log("TestAskForString")
+
+	// yes
+	testUserInput := "y"
+	res, err := AskForBoolFromReader("Yes or no?", strings.NewReader(testUserInput))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res != true {
+		t.Fatalf("Scanned input (%s) does not match expected (%s)", res, testUserInput)
+	}
+
+	// no
+	testUserInput = "no"
+	res, err = AskForBoolFromReader("Yes or no?", strings.NewReader(testUserInput))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res != false {
 		t.Fatalf("Scanned input (%s) does not match expected (%s)", res, testUserInput)
 	}
 }
