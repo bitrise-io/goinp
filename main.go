@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bitrise-io/go-interactive-cli/goinp"
+	"github.com/bitrise-io/goinp/goinp"
 )
 
 func main() {
