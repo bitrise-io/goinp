@@ -16,7 +16,7 @@ func AskForStringFromReader(messageToPrint string, inputReader io.Reader) (strin
 	fmt.Printf("%s : ", messageToPrint)
 	if scanner.Scan() {
 		scannedText := scanner.Text()
-		return scannedText, nil
+		return strings.TrimRight(scannedText, "\n "), nil
 	}
 	return "", errors.New("Failed to get input - scanner failed.")
 }
