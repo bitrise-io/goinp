@@ -19,6 +19,34 @@ func TestAskForStringFromReader(t *testing.T) {
 	}
 }
 
+func TestAskForPathFromReader(t *testing.T) {
+	t.Log("TestAskForPathFromReader")
+
+	t.Log("Simple path")
+	{
+		testUserInput := "path/without/spaces"
+		res, err := AskForPathFromReader("Enter a path", strings.NewReader(testUserInput))
+		require.NoError(t, err)
+		require.Equal(t, "path/without/spaces", res)
+	}
+
+	t.Log("Path with simple spaces")
+	{
+		testUserInput := "path/with simple/spaces"
+		res, err := AskForPathFromReader("Enter a path", strings.NewReader(testUserInput))
+		require.NoError(t, err)
+		require.Equal(t, "path/with simple/spaces", res)
+	}
+
+	t.Log("Path with backspace escaped space")
+	{
+		testUserInput := "path/with\\ spaces/in it"
+		res, err := AskForPathFromReader("Enter a path", strings.NewReader(testUserInput))
+		require.NoError(t, err)
+		require.Equal(t, "path/with spaces/in it", res)
+	}
+}
+
 func TestAskForIntFromReader(t *testing.T) {
 	t.Log("TestAskForString")
 
