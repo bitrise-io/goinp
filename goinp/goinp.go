@@ -208,10 +208,6 @@ func SelectFromStringsFromReaderWithDefault(messageToPrint string, defaultValue 
 		return "", err
 	}
 
-	fmt.Println()
-	fmt.Printf("selectedOptionNum: %d", selectedOptionNum)
-	fmt.Println()
-
 	if selectedOptionNum < 1 {
 		return "", fmt.Errorf("Invalid option: You entered a number less than 1")
 	}
