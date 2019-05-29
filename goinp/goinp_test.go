@@ -1,6 +1,9 @@
 package goinp
 
 import (
+	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -423,5 +426,229 @@ func TestSelectFromStringsFromReader(t *testing.T) {
 	{
 		_, err := SelectFromStringsFromReader("Select something", availableOptions, strings.NewReader("4"))
 		require.EqualError(t, err, "invalid option: You entered a number greater than the last option's number")
+	}
+}
+
+func testAskOptionWrapper(title string, defaultValue string, optional bool, stdin string, options ...string) (string, string, error) {
+	in, err := ioutil.TempFile("/tmp", "gotest")
+	if err != nil {
+		return "", "", err
+	}
+	defer in.Close()
+
+	out, err := ioutil.TempFile("/tmp", "gotest")
+	if err != nil {
+		return "", "", err
+	}
+	defer in.Close()
+
+	// test single input - not optional
+	if _, err := io.WriteString(in, stdin); err != nil {
+		return "", "", err
+	}
+
+	if _, err = in.Seek(0, os.SEEK_SET); err != nil {
+		return "", "", err
+	}
+
+	os.Stdin = in
+	os.Stdout = out
+
+	var s string
+	if len(options) > 0 {
+		s, err = AskOptions(title, defaultValue, optional, options...)
+	} else {
+		s, err = AskOptions(title, defaultValue, optional)
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	if _, err = out.Seek(0, os.SEEK_SET); err != nil {
+		return "", "", err
+	}
+
+	b, err := ioutil.ReadAll(out)
+	if err != nil {
+		return "", "", err
+	}
+
+	return s, string(b), nil
+}
+
+func Test_AskOptions(t *testing.T) {
+	//// required user input checks
+
+	answer, stdout, err := testAskOptionWrapper("title", "", false, "single non-optional input\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "single non-optional input" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != "Enter value for \"title\": " {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// empty when required
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "\nshould return this\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "should return this" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Enter value for "title": [31;1mvalue must be specified[0m
+Enter value for "title": ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// optional user input checks
+	answer, stdout, err = testAskOptionWrapper("title", "", true, "should return this\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "should return this" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Enter value for "title": ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// before \n is an empty string, should return that and does not care after the rest
+	answer, stdout, err = testAskOptionWrapper("title", "", true, "\nshould not return this but empty string")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Enter value for "title": ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	//// required selector tests
+
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "2\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "option two" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// higher item number than list len
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "5\n1\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "option one" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+Type in the option's number, then hit Enter: [31;1minvalid option number, pick a number 1-2[0m
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// char instead of number
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "a\n2\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "option two" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+Type in the option's number, then hit Enter: [31;1mfailed to parse option number, pick a number from 1-2[0m
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// empty instead of number
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "\n2\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "option two" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+Type in the option's number, then hit Enter: [31;1mfailed to parse option number, pick a number from 1-2[0m
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// auto select only element if required option
+	answer, stdout, err = testAskOptionWrapper("title", "", false, "the input can be whatever", "only one option auto selected")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "only one option auto selected" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	//// optional selector tests
+
+	// DO NOT auto select only element if optional option
+	answer, stdout, err = testAskOptionWrapper("title", "", true, "1\n", "only one option selected")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "only one option selected" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : only one option selected
+[2] : <custom value>
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// optional option more element
+	answer, stdout, err = testAskOptionWrapper("title", "", true, "2\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "option two" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+[3] : <custom value>
+Type in the option's number, then hit Enter: ` {
+		t.Fatalf("invalid stdout: %s", stdout)
+	}
+
+	// optional option more element and selected custom value
+	answer, stdout, err = testAskOptionWrapper("title", "", true, "3\nthis is my custom value\n", "option one", "option two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer != "this is my custom value" {
+		t.Fatalf("invalid value returned: %s", answer)
+	}
+	if stdout != `Select "title" from the list:
+[1] : option one
+[2] : option two
+[3] : <custom value>
+Type in the option's number, then hit Enter: Enter value for "title": ` {
+		t.Fatalf("invalid stdout: %s", stdout)
 	}
 }

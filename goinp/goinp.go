@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/bitrise-io/go-utils/log"
+	"github.com/bitrise-io/go-utils/colorstring"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 //=======================================
@@ -63,16 +65,18 @@ func AskForString(messageToPrint string) (string, error) {
 }
 
 func writeStdinClearable(text string) error {
-	for _, c := range []byte(text) {
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
-			return fmt.Errorf("failed to write to stdin, err no: %d", errno)
+	// clearable stdin text is only possible if there is an available terminal input buffer
+	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+		for _, c := range []byte(text) {
+			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
+				return fmt.Errorf("failed to write to stdin, err no: %d", errno)
+			}
 		}
 	}
 	return nil
 }
 
-// AskOptions ...
-func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+func askOptionsWithReader(title string, defaultValue string, optional bool, reader *bufio.Reader, options ...string) (string, error) {
 	const customValueOptionText = "<custom value>"
 
 	if len(options) == 0 {
@@ -80,10 +84,6 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 			if title != "" {
 				fmt.Print("Enter value for \"" + strings.TrimSuffix(title, ":") + "\": ")
 			}
-			var (
-				input string
-				err   error
-			)
 
 			if defaultValue != "" {
 				if err := writeStdinClearable(defaultValue); err != nil {
@@ -91,13 +91,13 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 				}
 			}
 
-			input, err = bufio.NewReader(os.Stdin).ReadString('\n')
+			input, err := reader.ReadString('\n')
 			if err != nil {
 				return "", err
 			}
 
 			if !optional && strings.TrimSpace(input) == "" {
-				log.Errorf("value must be specified")
+				fmt.Print(colorstring.Red("value must be specified") + "\n")
 				continue
 			}
 
@@ -120,35 +120,45 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 	}
 
 	for i, option := range options {
-		log.Printf("[%d] : %s", i+1, option)
+		fmt.Printf("[%d] : %s\n", i+1, option)
 	}
 
 	for {
 		fmt.Print("Type in the option's number, then hit Enter: ")
 
-		answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		answer, err := reader.ReadString('\n')
 		if err != nil {
-			log.Errorf("failed to read input value")
+			fmt.Printf(colorstring.Red("failed to read input value") + "\n")
 			continue
 		}
 
 		optionNo, err := strconv.Atoi(strings.TrimSpace(answer))
 		if err != nil {
-			log.Errorf("failed to parse option number, pick a number from 1-%d", len(options))
+			fmt.Print(colorstring.Red(fmt.Sprintf("failed to parse option number, pick a number from 1-%d", len(options))) + "\n")
 			continue
 		}
 
 		if optionNo-1 < 0 || optionNo-1 >= len(options) {
-			log.Errorf("invalid option number, pick a number 1-%d", len(options))
+			fmt.Print(colorstring.Red(fmt.Sprintf("invalid option number, pick a number 1-%d", len(options))) + "\n")
 			continue
 		}
 
-		if options[optionNo-1] == customValueOptionText {
-			return AskOptions(title, "", true)
+		if optionNo == len(options) && optional {
+			return askOptionsWithReader(title, "", true, reader)
 		}
 
 		return options[optionNo-1], nil
 	}
+}
+
+// AskOptions ...
+func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	if len(options) == 0 {
+		return askOptionsWithReader(title, defaultValue, optional, reader)
+	}
+	return askOptionsWithReader(title, defaultValue, optional, reader, options...)
 }
 
 //=======================================
