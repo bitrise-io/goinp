@@ -2,6 +2,7 @@ package goinp
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -76,7 +77,21 @@ func writeStdinClearable(text string) error {
 	return nil
 }
 
-func askForInput(title string, defaultValue string, optional bool, reader *bufio.Reader) (string, error) {
+func readUntil(reader io.Reader, str string) (string, error) {
+	var strb []byte
+	for {
+		b := make([]byte, 1)
+		if _, err := reader.Read(b); err != nil {
+			return "", err
+		}
+		strb = append(strb, b[0])
+		if bytes.HasSuffix(strb, []byte(str)) {
+			return string(strb), nil
+		}
+	}
+}
+
+func askForInput(title string, defaultValue string, optional bool, reader io.Reader) (string, error) {
 	for {
 		if title != "" {
 			fmt.Print("Enter value for \"" + strings.TrimSuffix(title, ":") + "\": ")
@@ -88,10 +103,7 @@ func askForInput(title string, defaultValue string, optional bool, reader *bufio
 			}
 		}
 
-		// var _ io.Reader = (*os.File)(nil)
-		// var _ os.File = (io.Reader)(nil)
-
-		input, err := reader.ReadString('\n')
+		input, err := readUntil(reader, "\n")
 		if err != nil {
 			return "", err
 		}
@@ -107,12 +119,10 @@ func askForInput(title string, defaultValue string, optional bool, reader *bufio
 
 // AskOptions ...
 func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
 	const customValueOptionText = "<custom value>"
 
 	if len(options) == 0 {
-		return askForInput(title, defaultValue, optional, reader)
+		return askForInput(title, defaultValue, optional, os.Stdin)
 	}
 
 	// add last option if optional so user can decide to input value manually
@@ -136,7 +146,7 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 	for {
 		fmt.Print("Type in the option's number, then hit Enter: ")
 
-		answer, err := reader.ReadString('\n')
+		answer, err := readUntil(os.Stdin, "\n")
 		if err != nil {
 			fmt.Printf(colorstring.Red("failed to read input value") + "\n")
 			continue
@@ -154,7 +164,7 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 		}
 
 		if optionNo == len(options) && optional {
-			return askForInput(title, "", true, reader)
+			return askForInput(title, "", true, os.Stdin)
 		}
 
 		return options[optionNo-1], nil
