@@ -440,7 +440,7 @@ func testAskOptionWrapper(title string, defaultValue string, optional bool, stdi
 	if err != nil {
 		return "", "", err
 	}
-	defer in.Close()
+	defer out.Close()
 
 	// test single input - not optional
 	if _, err := io.WriteString(in, stdin); err != nil {
@@ -451,6 +451,7 @@ func testAskOptionWrapper(title string, defaultValue string, optional bool, stdi
 		return "", "", err
 	}
 
+	// we should not set these
 	os.Stdin = in
 	os.Stdout = out
 

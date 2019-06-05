@@ -76,33 +76,43 @@ func writeStdinClearable(text string) error {
 	return nil
 }
 
-func askOptionsWithReader(title string, defaultValue string, optional bool, reader *bufio.Reader, options ...string) (string, error) {
+func askForInput(title string, defaultValue string, optional bool, reader *bufio.Reader) (string, error) {
+	for {
+		if title != "" {
+			fmt.Print("Enter value for \"" + strings.TrimSuffix(title, ":") + "\": ")
+		}
+
+		if defaultValue != "" {
+			if err := writeStdinClearable(defaultValue); err != nil {
+				return "", err
+			}
+		}
+
+		// var _ io.Reader = (*os.File)(nil)
+		// var _ os.File = (io.Reader)(nil)
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+
+		if !optional && strings.TrimSpace(input) == "" {
+			fmt.Print(colorstring.Red("value must be specified") + "\n")
+			continue
+		}
+
+		return strings.TrimSpace(input), nil
+	}
+}
+
+// AskOptions ...
+func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
 	const customValueOptionText = "<custom value>"
 
 	if len(options) == 0 {
-		for {
-			if title != "" {
-				fmt.Print("Enter value for \"" + strings.TrimSuffix(title, ":") + "\": ")
-			}
-
-			if defaultValue != "" {
-				if err := writeStdinClearable(defaultValue); err != nil {
-					return "", err
-				}
-			}
-
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				return "", err
-			}
-
-			if !optional && strings.TrimSpace(input) == "" {
-				fmt.Print(colorstring.Red("value must be specified") + "\n")
-				continue
-			}
-
-			return strings.TrimSpace(input), nil
-		}
+		return askForInput(title, defaultValue, optional, reader)
 	}
 
 	// add last option if optional so user can decide to input value manually
@@ -144,21 +154,11 @@ func askOptionsWithReader(title string, defaultValue string, optional bool, read
 		}
 
 		if optionNo == len(options) && optional {
-			return askOptionsWithReader(title, "", true, reader)
+			return askForInput(title, "", true, reader)
 		}
 
 		return options[optionNo-1], nil
 	}
-}
-
-// AskOptions ...
-func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	if len(options) == 0 {
-		return askOptionsWithReader(title, defaultValue, optional, reader)
-	}
-	return askOptionsWithReader(title, defaultValue, optional, reader, options...)
 }
 
 //=======================================
