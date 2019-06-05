@@ -65,11 +65,15 @@ func AskForString(messageToPrint string) (string, error) {
 	return AskForStringFromReader(messageToPrint, os.Stdin)
 }
 
-func writeStdinClearable(text string) error {
+type FDAble interface {
+	Fd() uintptr
+}
+
+func writeStdinClearable(f FDAble, text string) error {
 	// clearable stdin text is only possible if there is an available terminal input buffer
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if terminal.IsTerminal(int(f.Fd())) {
 		for _, c := range []byte(text) {
-			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
+			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
 				return fmt.Errorf("failed to write to stdin, err no: %d", errno)
 			}
 		}
@@ -98,8 +102,12 @@ func askForInput(title string, defaultValue string, optional bool, reader io.Rea
 		}
 
 		if defaultValue != "" {
-			if err := writeStdinClearable(defaultValue); err != nil {
-				return "", err
+			if f, ok := reader.(FDAble); ok {
+				if err := writeStdinClearable(f, defaultValue); err != nil {
+					return "", err
+				}
+			} else {
+				fmt.Println()
 			}
 		}
 
@@ -118,11 +126,11 @@ func askForInput(title string, defaultValue string, optional bool, reader io.Rea
 }
 
 // AskOptions ...
-func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+func AskOptions(title string, defaultValue string, optional bool, rd io.Reader, options ...string) (string, error) {
 	const customValueOptionText = "<custom value>"
 
 	if len(options) == 0 {
-		return askForInput(title, defaultValue, optional, os.Stdin)
+		return askForInput(title, defaultValue, optional, rd)
 	}
 
 	// add last option if optional so user can decide to input value manually
@@ -146,7 +154,7 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 	for {
 		fmt.Print("Type in the option's number, then hit Enter: ")
 
-		answer, err := readUntil(os.Stdin, "\n")
+		answer, err := readUntil(rd, "\n")
 		if err != nil {
 			fmt.Printf(colorstring.Red("failed to read input value") + "\n")
 			continue
@@ -164,7 +172,7 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 		}
 
 		if optionNo == len(options) && optional {
-			return askForInput(title, "", true, os.Stdin)
+			return askForInput(title, "", true, rd)
 		}
 
 		return options[optionNo-1], nil
