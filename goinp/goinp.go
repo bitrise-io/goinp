@@ -99,7 +99,9 @@ func readUntil(reader stdin, str string) (string, error) {
 func askForInput(title string, defaultValue string, optional bool, reader stdin, writer io.Writer) (string, error) {
 	for {
 		if title != "" {
-			fmt.Fprint(writer, "Enter value for \""+strings.TrimSuffix(title, ":")+"\": ")
+			if _, err := fmt.Fprint(writer, "Enter value for \""+strings.TrimSuffix(title, ":")+"\": "); err != nil {
+				return "", err
+			}
 		}
 
 		if defaultValue != "" {
@@ -114,7 +116,9 @@ func askForInput(title string, defaultValue string, optional bool, reader stdin,
 		}
 
 		if !optional && strings.TrimSpace(input) == "" {
-			fmt.Fprint(writer, colorstring.Red("value must be specified")+"\n")
+			if _, err := fmt.Fprint(writer, colorstring.Red("value must be specified")+"\n"); err != nil {
+				return "", err
+			}
 			continue
 		}
 
@@ -140,30 +144,42 @@ func askOptions(title string, defaultValue string, optional bool, reader stdin, 
 	}
 
 	if title != "" {
-		fmt.Fprintln(writer, "Select \""+strings.TrimSuffix(title, ":")+"\" from the list:")
+		if _, err := fmt.Fprintln(writer, "Select \""+strings.TrimSuffix(title, ":")+"\" from the list:"); err != nil {
+			return "", err
+		}
 	}
 
 	for i, option := range options {
-		fmt.Fprintf(writer, "[%d] : %s\n", i+1, option)
+		if _, err := fmt.Fprintf(writer, "[%d] : %s\n", i+1, option); err != nil {
+			return "", err
+		}
 	}
 
 	for {
-		fmt.Fprint(writer, "Type in the option's number, then hit Enter: ")
+		if _, err := fmt.Fprint(writer, "Type in the option's number, then hit Enter: "); err != nil {
+			return "", err
+		}
 
 		answer, err := readUntil(reader, "\n")
 		if err != nil {
-			fmt.Fprintf(writer, colorstring.Red("failed to read input value")+"\n")
+			if _, err := fmt.Fprintf(writer, colorstring.Red("failed to read input value")+"\n"); err != nil {
+				return "", err
+			}
 			continue
 		}
 
 		optionNo, err := strconv.Atoi(strings.TrimSpace(answer))
 		if err != nil {
-			fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("failed to parse option number, pick a number from 1-%d", len(options)))+"\n")
+			if _, err := fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("failed to parse option number, pick a number from 1-%d", len(options)))+"\n"); err != nil {
+				return "", err
+			}
 			continue
 		}
 
 		if optionNo-1 < 0 || optionNo-1 >= len(options) {
-			fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("invalid option number, pick a number 1-%d", len(options)))+"\n")
+			if _, err := fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("invalid option number, pick a number 1-%d", len(options)))+"\n"); err != nil {
+				return "", err
+			}
 			continue
 		}
 
