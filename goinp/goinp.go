@@ -65,11 +65,16 @@ func AskForString(messageToPrint string) (string, error) {
 	return AskForStringFromReader(messageToPrint, os.Stdin)
 }
 
-func writeStdinClearable(text string) error {
+type stdin interface {
+	Fd() uintptr
+	Read([]byte) (int, error)
+}
+
+func writeStdinClearable(text string, in stdin) error {
 	// clearable stdin text is only possible if there is an available terminal input buffer
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if terminal.IsTerminal(int(in.Fd())) {
 		for _, c := range []byte(text) {
-			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
+			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, in.Fd(), syscall.TIOCSTI, uintptr(unsafe.Pointer(&c))); errno != 0 {
 				return fmt.Errorf("failed to write to stdin, err no: %d", errno)
 			}
 		}
@@ -77,7 +82,7 @@ func writeStdinClearable(text string) error {
 	return nil
 }
 
-func readUntil(reader io.Reader, str string) (string, error) {
+func readUntil(reader stdin, str string) (string, error) {
 	var strb []byte
 	for {
 		b := make([]byte, 1)
@@ -91,14 +96,14 @@ func readUntil(reader io.Reader, str string) (string, error) {
 	}
 }
 
-func askForInput(title string, defaultValue string, optional bool, reader io.Reader) (string, error) {
+func askForInput(title string, defaultValue string, optional bool, reader stdin, writer io.Writer) (string, error) {
 	for {
 		if title != "" {
-			fmt.Print("Enter value for \"" + strings.TrimSuffix(title, ":") + "\": ")
+			fmt.Fprint(writer, "Enter value for \""+strings.TrimSuffix(title, ":")+"\": ")
 		}
 
 		if defaultValue != "" {
-			if err := writeStdinClearable(defaultValue); err != nil {
+			if err := writeStdinClearable(defaultValue, reader); err != nil {
 				return "", err
 			}
 		}
@@ -109,7 +114,7 @@ func askForInput(title string, defaultValue string, optional bool, reader io.Rea
 		}
 
 		if !optional && strings.TrimSpace(input) == "" {
-			fmt.Print(colorstring.Red("value must be specified") + "\n")
+			fmt.Fprint(writer, colorstring.Red("value must be specified")+"\n")
 			continue
 		}
 
@@ -117,12 +122,11 @@ func askForInput(title string, defaultValue string, optional bool, reader io.Rea
 	}
 }
 
-// AskOptions ...
-func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+func askOptions(title string, defaultValue string, optional bool, reader stdin, writer io.Writer, options ...string) (string, error) {
 	const customValueOptionText = "<custom value>"
 
 	if len(options) == 0 {
-		return askForInput(title, defaultValue, optional, os.Stdin)
+		return askForInput(title, defaultValue, optional, reader, writer)
 	}
 
 	// add last option if optional so user can decide to input value manually
@@ -136,39 +140,44 @@ func AskOptions(title string, defaultValue string, optional bool, options ...str
 	}
 
 	if title != "" {
-		fmt.Println("Select \"" + strings.TrimSuffix(title, ":") + "\" from the list:")
+		fmt.Fprintln(writer, "Select \""+strings.TrimSuffix(title, ":")+"\" from the list:")
 	}
 
 	for i, option := range options {
-		fmt.Printf("[%d] : %s\n", i+1, option)
+		fmt.Fprintf(writer, "[%d] : %s\n", i+1, option)
 	}
 
 	for {
-		fmt.Print("Type in the option's number, then hit Enter: ")
+		fmt.Fprint(writer, "Type in the option's number, then hit Enter: ")
 
-		answer, err := readUntil(os.Stdin, "\n")
+		answer, err := readUntil(reader, "\n")
 		if err != nil {
-			fmt.Printf(colorstring.Red("failed to read input value") + "\n")
+			fmt.Fprintf(writer, colorstring.Red("failed to read input value")+"\n")
 			continue
 		}
 
 		optionNo, err := strconv.Atoi(strings.TrimSpace(answer))
 		if err != nil {
-			fmt.Print(colorstring.Red(fmt.Sprintf("failed to parse option number, pick a number from 1-%d", len(options))) + "\n")
+			fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("failed to parse option number, pick a number from 1-%d", len(options)))+"\n")
 			continue
 		}
 
 		if optionNo-1 < 0 || optionNo-1 >= len(options) {
-			fmt.Print(colorstring.Red(fmt.Sprintf("invalid option number, pick a number 1-%d", len(options))) + "\n")
+			fmt.Fprint(writer, colorstring.Red(fmt.Sprintf("invalid option number, pick a number 1-%d", len(options)))+"\n")
 			continue
 		}
 
 		if optionNo == len(options) && optional {
-			return askForInput(title, "", true, os.Stdin)
+			return askForInput(title, "", true, reader, writer)
 		}
 
 		return options[optionNo-1], nil
 	}
+}
+
+// AskOptions ...
+func AskOptions(title string, defaultValue string, optional bool, options ...string) (string, error) {
+	return askOptions(title, defaultValue, optional, os.Stdin, os.Stdout, options...)
 }
 
 //=======================================

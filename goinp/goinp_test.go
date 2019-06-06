@@ -1,10 +1,9 @@
 package goinp
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
+	"bytes"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -429,52 +428,30 @@ func TestSelectFromStringsFromReader(t *testing.T) {
 	}
 }
 
+type testStdin struct {
+	Stdin *bytes.Buffer
+}
+
+func (testStdin) Fd() uintptr {
+	return uintptr(syscall.Stdin)
+}
+
+func (t testStdin) Read(b []byte) (int, error) {
+	return t.Stdin.Read(b)
+}
+
 func testAskOptionWrapper(title string, defaultValue string, optional bool, stdin string, options ...string) (string, string, error) {
-	in, err := ioutil.TempFile("/tmp", "gotest")
-	if err != nil {
-		return "", "", err
+	sio := testStdin{
+		bytes.NewBufferString(stdin),
 	}
-	defer in.Close()
+	var outBuf bytes.Buffer
 
-	out, err := ioutil.TempFile("/tmp", "gotest")
-	if err != nil {
-		return "", "", err
-	}
-	defer out.Close()
-
-	// test single input - not optional
-	if _, err := io.WriteString(in, stdin); err != nil {
-		return "", "", err
-	}
-
-	if _, err = in.Seek(0, os.SEEK_SET); err != nil {
-		return "", "", err
-	}
-
-	// we should not set these
-	os.Stdin = in
-	os.Stdout = out
-
-	var s string
-	if len(options) > 0 {
-		s, err = AskOptions(title, defaultValue, optional, options...)
-	} else {
-		s, err = AskOptions(title, defaultValue, optional)
-	}
+	s, err := askOptions(title, defaultValue, optional, sio, &outBuf, options...)
 	if err != nil {
 		return "", "", err
 	}
 
-	if _, err = out.Seek(0, os.SEEK_SET); err != nil {
-		return "", "", err
-	}
-
-	b, err := ioutil.ReadAll(out)
-	if err != nil {
-		return "", "", err
-	}
-
-	return s, string(b), nil
+	return s, outBuf.String(), nil
 }
 
 func Test_AskOptions(t *testing.T) {
