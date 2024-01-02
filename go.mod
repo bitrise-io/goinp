@@ -1,12 +1,16 @@
 module github.com/bitrise-io/goinp
 
-go 1.16
+go 1.21.5
+
+require (
+	github.com/stretchr/testify v1.8.4
+	golang.org/x/crypto v0.17.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20210503195802-e9a32991a82e
-	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
-	golang.org/x/term v0.0.0-20210503060354-a79de5458b56 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
