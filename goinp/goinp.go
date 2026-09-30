@@ -126,7 +126,7 @@ func AskForPathFromReaderWithDefault(messageToPrint, defaultValue string, inputR
 		return "", err
 	}
 
-	return strings.Replace(str, "\\", "", -1), nil
+	return strings.ReplaceAll(str, "\\", ""), nil
 }
 
 // AskForPathFromReader ...
@@ -203,7 +203,7 @@ func AskForBoolFromReaderWithDefaultValue(messageToPrint string, defaultValue bo
 
 	keywordYes := "yes"
 	keywordNo := "no"
-	if defaultValue == true {
+	if defaultValue {
 		keywordYes = "YES"
 	} else {
 		keywordNo = "NO"
