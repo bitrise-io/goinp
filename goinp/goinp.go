@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 //=======================================
@@ -66,7 +66,7 @@ func AskForString(messageToPrint string) (string, error) {
 
 // WriteToTerminalInputBuffer prints a text to the terminal console which can be used as an input for a question or can be cleared out
 func WriteToTerminalInputBuffer(text string) error {
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
 		for _, c := range []byte(text) {
 			if _, _, errno := syscall.Syscall(
 				syscall.SYS_IOCTL,
