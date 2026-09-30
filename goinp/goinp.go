@@ -81,7 +81,7 @@ func WriteToTerminalInputBuffer(text string) error {
 	return nil
 }
 
-func askForOptionalInput(defaultValue string, optional bool, reader io.Reader, writer io.Writer) (string, error) {
+func askForOptionalInput(defaultValue string, optional bool, reader io.Reader) (string, error) {
 	r := bufio.NewReader(reader)
 
 	if defaultValue != "" {
@@ -106,7 +106,7 @@ func askForOptionalInput(defaultValue string, optional bool, reader io.Reader, w
 
 // AskForOptionalInput will wait for input, and will print clearable default text in case of interactive shell. Accepts empty input in case if optional.
 func AskForOptionalInput(defaultValue string, optional bool) (string, error) {
-	return askForOptionalInput(defaultValue, optional, os.Stdin, os.Stdout)
+	return askForOptionalInput(defaultValue, optional, os.Stdin)
 }
 
 //=======================================
