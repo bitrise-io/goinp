@@ -3,7 +3,6 @@ package goinp
 import (
 	"bytes"
 	"strings"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -428,84 +427,48 @@ func TestSelectFromStringsFromReader(t *testing.T) {
 	}
 }
 
-type testStdin struct {
-	Stdin *bytes.Buffer
-}
-
-func (testStdin) Fd() uintptr {
-	return uintptr(syscall.Stdin)
-}
-
-func (t testStdin) Read(b []byte) (int, error) {
-	return t.Stdin.Read(b)
-}
-
-func testAskOptionWrapper(defaultValue string, optional bool, stdin string) (string, string, error) {
-	inBuf := bytes.NewBufferString(stdin)
-	var outBuf bytes.Buffer
-
-	s, err := askForOptionalInput(defaultValue, optional, inBuf, &outBuf)
-	if err != nil {
-		return "", "", err
-	}
-
-	return s, outBuf.String(), nil
+func testAskOptionWrapper(optional bool, stdin string) (string, error) {
+	return askForOptionalInput("", optional, bytes.NewBufferString(stdin))
 }
 
 func Test_AskOptions(t *testing.T) {
-	answer, stdout, err := testAskOptionWrapper("", false, "single non-optional input\n")
+	answer, err := testAskOptionWrapper(false, "single non-optional input\n")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if answer != "single non-optional input" {
 		t.Fatalf("invalid value returned: %s", answer)
 	}
-	if stdout != "" {
-		t.Fatalf("invalid stdout: %s", stdout)
-	}
 
-	answer, stdout, err = testAskOptionWrapper("", false, "\nshould not return this but an error\n")
+	answer, err = testAskOptionWrapper(false, "\nshould not return this but an error\n")
 	if err == nil {
 		t.Fatal("should return error")
 	}
 	if answer != "" {
 		t.Fatalf("invalid value returned: %s", answer)
 	}
-	if stdout != "" {
-		t.Fatalf("invalid stdout: %s", stdout)
-	}
 
-	answer, stdout, err = testAskOptionWrapper("", true, "should return this\n")
+	answer, err = testAskOptionWrapper(true, "should return this\n")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if answer != "should return this" {
 		t.Fatalf("invalid value returned: %s", answer)
 	}
-	if stdout != "" {
-		t.Fatalf("invalid stdout: %s", stdout)
-	}
 
-	answer, stdout, err = testAskOptionWrapper("", true, "\nshould not return this but empty string")
+	answer, err = testAskOptionWrapper(true, "\nshould not return this but empty string")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if answer != "" {
 		t.Fatalf("invalid value returned: %s", answer)
 	}
-	if stdout != "" {
-		t.Fatalf("invalid stdout: %s", stdout)
-	}
 
-	answer, stdout, err = testAskOptionWrapper("", true, "\n")
+	answer, err = testAskOptionWrapper(true, "\n")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if answer != "" {
 		t.Fatalf("invalid value returned: %s", answer)
 	}
-	if stdout != "" {
-		t.Fatalf("invalid stdout: %s", stdout)
-	}
-
 }

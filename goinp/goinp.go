@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 //=======================================
@@ -66,7 +66,7 @@ func AskForString(messageToPrint string) (string, error) {
 
 // WriteToTerminalInputBuffer prints a text to the terminal console which can be used as an input for a question or can be cleared out
 func WriteToTerminalInputBuffer(text string) error {
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
 		for _, c := range []byte(text) {
 			if _, _, errno := syscall.Syscall(
 				syscall.SYS_IOCTL,
@@ -81,7 +81,7 @@ func WriteToTerminalInputBuffer(text string) error {
 	return nil
 }
 
-func askForOptionalInput(defaultValue string, optional bool, reader io.Reader, writer io.Writer) (string, error) {
+func askForOptionalInput(defaultValue string, optional bool, reader io.Reader) (string, error) {
 	r := bufio.NewReader(reader)
 
 	if defaultValue != "" {
@@ -106,7 +106,7 @@ func askForOptionalInput(defaultValue string, optional bool, reader io.Reader, w
 
 // AskForOptionalInput will wait for input, and will print clearable default text in case of interactive shell. Accepts empty input in case if optional.
 func AskForOptionalInput(defaultValue string, optional bool) (string, error) {
-	return askForOptionalInput(defaultValue, optional, os.Stdin, os.Stdout)
+	return askForOptionalInput(defaultValue, optional, os.Stdin)
 }
 
 //=======================================
@@ -126,7 +126,7 @@ func AskForPathFromReaderWithDefault(messageToPrint, defaultValue string, inputR
 		return "", err
 	}
 
-	return strings.Replace(str, "\\", "", -1), nil
+	return strings.ReplaceAll(str, "\\", ""), nil
 }
 
 // AskForPathFromReader ...
@@ -203,7 +203,7 @@ func AskForBoolFromReaderWithDefaultValue(messageToPrint string, defaultValue bo
 
 	keywordYes := "yes"
 	keywordNo := "no"
-	if defaultValue == true {
+	if defaultValue {
 		keywordYes = "YES"
 	} else {
 		keywordNo = "NO"
